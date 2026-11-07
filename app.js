@@ -22,7 +22,8 @@ if(!matches.length&&ds)matches=data.filter(a=>a.day===Number(ds[1]));
 if(!matches.length)return 'No encontré una coincidencia clara en el programa. Prueba con una fecha (11, 12 o 13 de noviembre), un tema, un ponente o el nombre de una actividad.';
 return 'Encontré '+matches.length+' actividad(es) relacionada(s):\n\n'+matches.slice(0,7).map(a=>'• '+a.day+'/nov · '+a.time+': '+a.title+(a.speaker?' — '+a.speaker:'')+' ('+(a.place||'sede no indicada')+')').join('\n')+(matches.length>7?'\n\nY '+(matches.length-7)+' más. Usa los filtros de la agenda para verlas todas.':'');
 }
-async function ask(q){if(!q.trim())return;let m=$('#messages');m.insertAdjacentHTML('beforeend','<div class="message user">'+esc(q)+'</div><div class="message bot" data-pending="true">✧ DACYT está pensando…</div>');m.scrollTop=m.scrollHeight;status.textContent='Consultando programa…';let answer='';try{const controller=new AbortController();const timeout=setTimeout(()=>controller.abort(),18000);let response;try{response=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:q}),signal:controller.signal})}finally{clearTimeout(timeout)}if(!response.ok)throw Error('IA no disponible');const result=await response.json();answer=result.answer||respond(q)}catch{answer=respond(q)}const pending=m.querySelector('[data-pending="true"]');if(pending){pending.textContent=answer;pending.removeAttribute('data-pending')}m.scrollTop=m.scrollHeight;speakRobot(answer)}
+function showChoices(choices){let old=$('#chatChoices');if(old)old.remove();if(!choices?.length)return;const panel=document.createElement('div');panel.id='chatChoices';panel.className='chat-choices';for(const label of choices){const button=document.createElement('button');button.type='button';button.textContent=label;button.onclick=()=>ask(label);panel.appendChild(button)}$('#messages').appendChild(panel);$('#messages').scrollTop=$('#messages').scrollHeight}
+async function ask(q){if(!q.trim())return;const m=$('#messages');const old=$('#chatChoices');if(old)old.remove();const user=document.createElement('div');user.className='message user';user.textContent=q;m.appendChild(user);const result=conversationalAnswer(q);const bot=document.createElement('div');bot.className='message bot';bot.textContent=result.answer;m.appendChild(bot);showChoices(result.choices);m.scrollTop=m.scrollHeight;speakRobot(result.answer)}
 $('#chatForm').onsubmit=e=>{e.preventDefault();ask($('#question').value);$('#question').value=''};
 document.querySelectorAll('.suggest').forEach(b=>b.onclick=()=>{ask(b.textContent);location.hash='asistente'});
 
@@ -34,11 +35,11 @@ let introductionStarted=false;
 function startIntroduction(){if(introductionStarted)return;introductionStarted=true;speakRobot(introText)}
 const robotSection=document.querySelector('#asistente');
 if('IntersectionObserver' in window){const observer=new IntersectionObserver(entries=>{if(entries.some(e=>e.isIntersecting)){observer.disconnect();startIntroduction()}},{threshold:.35});observer.observe(robotSection)}else{startIntroduction()}
-// Algunos navegadores bloquean el audio sin interacción previa. Se reintenta
-// en el primer toque/clic/tecla, sin mostrar controles adicionales.
-function resumeIntro(){if(!introductionStarted)startIntroduction();else if(!robot.classList.contains('speaking')&&status.textContent==='Audio no disponible')speakRobot(introText);document.removeEventListener('pointerdown',resumeIntro);document.removeEventListener('keydown',resumeIntro)}
-document.addEventListener('pointerdown',resumeIntro,{once:true});document.addEventListener('keydown',resumeIntro,{once:true});
-
+// En iOS Safari el audio no puede comenzar solo sin un gesto del usuario.
+// Intentar el saludo en el primer gesto sobre la web, sin controles extra.
+function tryIntroOnGesture(){if(!introductionStarted)startIntroduction();else if(status.textContent==='Audio no disponible')speakRobot(introText)}
+document.addEventListener('pointerdown',tryIntroOnGesture,{once:true});
+document.addEventListener('keydown',tryIntroOnGesture,{once:true});
 /* Visemas temporizados: cuando Azure Speech está configurado, el SDK entrega
    IDs de visema alineados al audio generado. Sin Azure se usa la voz local. */
 let azurePlayer=null,azureSynth=null,visemeFrames=[],visemeRaf=0,speechSerial=0;
