@@ -29,31 +29,22 @@ document.querySelectorAll('.suggest').forEach(b=>b.onclick=()=>{ask(b.textConten
 
 let voiceEnabled=true;let currentSpeech=null;let mobileSpeechWatchdog=null;let lastRobotAnswer='';const synth=window.speechSynthesis;const robot=$('#robotAvatar'),status=$('#robotStatus');
 function stopRobot(){clearTimeout(mobileSpeechWatchdog);stopLocalVisemes();if(synth)synth.cancel();robot.classList.remove('speaking','mouth-open');status.textContent='Listo para ayudarte';currentSpeech=null}
+// Restaurado desde la versión de voz que funcionaba en Safari (commit 6f7febe).
+// Los visemas solo reaccionan a los eventos de la voz; no la controlan.
 function fallbackSpeakRobot(text){
- lastRobotAnswer=text;
- if(!voiceEnabled||!synth||typeof SpeechSynthesisUtterance==='undefined'){
-   status.textContent='Voz no compatible con este navegador';return;
- }
- // Safari necesita que speak() se ejecute directamente desde el gesto del usuario.
- // Evitar cancel() en el primer mensaje: puede dejar la cola de iOS en silencio.
- clearTimeout(mobileSpeechWatchdog);
- if(currentSpeech||synth.speaking||synth.pending){try{synth.cancel()}catch{}}
- stopLocalVisemes();
- robot.classList.remove('speaking','mouth-open');
- const u=new SpeechSynthesisUtterance(String(text).slice(0,1400));
- u.lang='es-MX';u.rate=0.95;u.pitch=1;u.volume=1;
- const voices=synth.getVoices()||[];
+ stopRobot();
+ if(!voiceEnabled||!synth)return;
+ const u=new SpeechSynthesisUtterance(text);
+ u.lang='es-MX';u.rate=1.02;u.pitch=1.06;
+ const voices=synth.getVoices();
  const es=voices.find(v=>v.lang.toLowerCase()==='es-mx')||voices.find(v=>v.lang.toLowerCase().startsWith('es'));
  if(es)u.voice=es;
- let started=false;
- u.onstart=()=>{started=true;robot.classList.add('speaking');status.textContent='Hablando…';animateLocalVisemes()};
- u.onboundary=()=>{if(!started){started=true;robot.classList.add('speaking');animateLocalVisemes()}};
- const finish=()=>{clearTimeout(mobileSpeechWatchdog);stopLocalVisemes();robot.classList.remove('speaking');if(currentSpeech===u)currentSpeech=null;status.textContent='Listo para ayudarte'};
- u.onend=finish;
- u.onerror=e=>{finish();status.textContent=e.error==='not-allowed'?'El navegador bloqueó el audio':'No se pudo reproducir la voz'};
+ u.onstart=()=>{robot.classList.add('speaking');status.textContent='Hablando…';animateLocalVisemes()};
+ u.onboundary=()=>{robot.classList.remove('mouth-open');void robot.offsetWidth;robot.classList.add('mouth-open')};
+ u.onend=()=>{stopLocalVisemes();robot.classList.remove('speaking');status.textContent='Listo para ayudarte'};
+ u.onerror=()=>{stopLocalVisemes();robot.classList.remove('speaking');status.textContent='Audio no disponible'};
  currentSpeech=u;
- try{synth.speak(u)}catch{finish();status.textContent='No se pudo iniciar el audio';return}
- mobileSpeechWatchdog=setTimeout(()=>{if(currentSpeech===u&&!started){status.textContent='No se inició la voz en este navegador';stopLocalVisemes()}},5000);
+ synth.speak(u);
 }
 /* Visemas temporizados: cuando Azure Speech está configurado, el SDK entrega
    IDs de visema alineados al audio generado. Sin Azure se usa la voz local. */
