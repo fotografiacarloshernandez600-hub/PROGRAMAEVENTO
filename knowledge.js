@@ -16,6 +16,6 @@ faq:[
 {keys:["salud","medicina"],answer:"En salud, la IA puede ayudar a analizar imágenes médicas, organizar información y apoyar investigaciones. No sustituye el diagnóstico ni el criterio de profesionales sanitarios."},
 {keys:["industria","automatizacion"],answer:"En la industria, la IA se utiliza para mantenimiento predictivo, control de calidad, optimización de procesos y automatización de tareas."},
 {keys:["luz","iluminacion","optica","fibra optica"],answer:"La luz es radiación electromagnética visible. En fibra óptica, los datos se transmiten mediante pulsos de luz por fibras de vidrio o plástico. El programa del CIIIA incluye un taller de Fibra Óptica el 11 de noviembre."},
-{keys:["dacyti","dacyt","ujat","division academica"],answer:"DACYTI significa División Académica de Ciencias y Tecnologías de la Información de la Universidad Juárez Autónoma de Tabasco, UJAT. DACYT 5.0 es el personaje virtual de esta página que ayuda a explorar el programa del CIIIA 2026."},
+{keys:["dacyti","dacyt","ujat","division academica"],answer:"DACYTI significa División Académica de Ciencias y Tecnologías de la Información de la Universidad Juárez Autónoma de Tabasco, UJAT. DACYTI 5.0 es el personaje virtual de esta página que ayuda a explorar el programa del CIIIA 2026."},
 {keys:["que puedes hacer","ayuda","funciones"],answer:"Puedo explicarte qué es el CIIIA, buscar horarios por día, conferencias, talleres, ponentes y sedes, y responder preguntas generales sobre inteligencia artificial, robótica, luz y tecnología."}
 ]};
