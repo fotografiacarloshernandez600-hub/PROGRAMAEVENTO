@@ -43,3 +43,5 @@
 /* Fundir el fondo negro incrustado en el PNG con el azul de la interfaz */
 .robot-avatar img,.welcome-panel img{mix-blend-mode:screen}
 .robot-avatar{isolation:isolate}
+
+.robot-audio-btn{display:inline-flex;align-items:center;justify-content:center;margin:10px auto 0;padding:10px 16px;border:1px solid #65c7f6;border-radius:12px;background:#144b78;color:#fff;font:inherit;font-size:14px;cursor:pointer}.robot-audio-btn[hidden]{display:none!important}.robot-audio-btn:focus-visible{outline:3px solid #b2efff;outline-offset:3px}
