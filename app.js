@@ -23,7 +23,7 @@ if(!matches.length)return 'No encontré una coincidencia clara en el programa. P
 return 'Encontré '+matches.length+' actividad(es) relacionada(s):\n\n'+matches.slice(0,7).map(a=>'• '+a.day+'/nov · '+a.time+': '+a.title+(a.speaker?' — '+a.speaker:'')+' ('+(a.place||'sede no indicada')+')').join('\n')+(matches.length>7?'\n\nY '+(matches.length-7)+' más. Usa los filtros de la agenda para verlas todas.':'');
 }
 function showChoices(choices){let old=$('#chatChoices');if(old)old.remove();if(!choices?.length)return;const panel=document.createElement('div');panel.id='chatChoices';panel.className='chat-choices';for(const label of choices){const button=document.createElement('button');button.type='button';button.textContent=label;button.onclick=()=>ask(label);panel.appendChild(button)}$('#messages').appendChild(panel);$('#messages').scrollTop=$('#messages').scrollHeight}
-async function ask(q){if(!q.trim())return;if(/(?:activa|activar|inicia|iniciar|abre|modo)\s+(?:el\s+)?modo\s+futuro|modo\s+futuro/i.test(q)){window.CIIIAExperience?.futureMode();return}const m=$('#messages');const old=$('#chatChoices');if(old)old.remove();const user=document.createElement('div');user.className='message user';user.textContent=q;m.appendChild(user);const result=conversationalAnswer(q);const bot=document.createElement('div');bot.className='message bot';bot.textContent=result.answer;m.appendChild(bot);showChoices(result.choices);m.scrollTop=m.scrollHeight;speakRobot(result.answer)}
+async function ask(q){if(!q.trim())return;introPending=false;if(/(?:activa|activar|inicia|iniciar|abre|modo)\s+(?:el\s+)?modo\s+futuro|modo\s+futuro/i.test(q)){window.CIIIAExperience?.futureMode();return}const m=$('#messages');const old=$('#chatChoices');if(old)old.remove();const user=document.createElement('div');user.className='message user';user.textContent=q;m.appendChild(user);const result=conversationalAnswer(q);const bot=document.createElement('div');bot.className='message bot';bot.textContent=result.answer;m.appendChild(bot);showChoices(result.choices);m.scrollTop=m.scrollHeight;speakRobot(result.answer)}
 $('#chatForm').onsubmit=e=>{e.preventDefault();ask($('#question').value);$('#question').value=''};
 document.querySelectorAll('.suggest').forEach(b=>b.onclick=()=>{ask(b.textContent);location.hash='asistente'});
 
@@ -80,3 +80,24 @@ function speakMobile(text){
  try{const p=audio.play();if(p&&typeof p.catch==='function')p.catch(fallback)}catch{fallback()}
 }
 function speakRobot(text){lastRobotAnswer=text;if(!voiceEnabled)return;const isAppleMobile=/iPad|iPhone|iPod/.test(navigator.userAgent)||(/Macintosh/.test(navigator.userAgent)&&navigator.maxTouchPoints>1);if(isAppleMobile||/Android|Mobile/i.test(navigator.userAgent)){speakMobile(text);return}const sdk=window.SpeechSDK;if(!sdk){fallbackSpeakRobot(text);return}const requestId=++speechSerial;fetch('/api/speech-token').then(async r=>{if(!r.ok)throw Error('Azure no configurado');return r.json()}).then(({token,region})=>{if(requestId!==speechSerial)return;stopRobot();const id=speechSerial;const config=sdk.SpeechConfig.fromAuthorizationToken(token,region);config.speechSynthesisVoiceName='es-MX-DaliaNeural';config.speechSynthesisOutputFormat=sdk.SpeechSynthesisOutputFormat.Audio24Khz48KBitRateMonoMp3;azurePlayer=new sdk.SpeakerAudioDestination();const audioConfig=sdk.AudioConfig.fromSpeakerOutput(azurePlayer);azureSynth=new sdk.SpeechSynthesizer(config,audioConfig);visemeFrames=[];robot.classList.add('speaking');status.textContent='Hablando con sincronización de visemas…';azureSynth.visemeReceived=(_,e)=>{visemeFrames.push({t:e.audioOffset/10000000,id:e.visemeId});visemeFrames.sort((a,b)=>a.t-b.t)};let last=-1;function tick(){if(id!==speechSerial)return;const time=azurePlayer?azurePlayer.currentTime:0;let active=0;for(const frame of visemeFrames){if(frame.t<=time+.025)active=frame.id;else break}if(active!==last){setViseme(active);last=active}visemeRaf=requestAnimationFrame(tick)}tick();azurePlayer.onAudioEnd=()=>{if(id!==speechSerial)return;cancelAnimationFrame(visemeRaf);robot.classList.remove('speaking');setViseme(0);status.textContent='Listo para ayudarte';if(azureSynth){azureSynth.close();azureSynth=null}};azureSynth.speakTextAsync(text,()=>{},()=>{if(id===speechSerial){stopRobot();fallbackSpeakRobot(text)}})}).catch(()=>{if(requestId===speechSerial)fallbackSpeakRobot(text)})}
+
+
+// Bienvenida al abrir el sitio: se intenta de inmediato y, si el navegador
+// bloquea autoplay, se reintenta con la primera interacción real del visitante.
+const introGreeting='¡Hola! Bienvenidos al CIIIA 2026. Soy DACYTI 5.0, tu asistente virtual. Estoy aquí para ayudarte a conocer las conferencias, talleres, horarios y actividades del congreso. ¡Pregúntame lo que quieras!';
+let introPending=true;
+function startIntroSpeech(){
+ if(!introPending)return;
+ speakRobot(introGreeting);
+}
+function unlockIntroSpeech(){
+ if(!introPending)return;
+ // Si ya se está reproduciendo audio, no reiniciarlo.
+ if((mobileAudio&&!mobileAudio.paused)||synth?.speaking){introPending=false;return}
+ introPending=false;
+ speakRobot(introGreeting);
+}
+document.addEventListener('pointerdown',unlockIntroSpeech,{once:true,capture:true});
+document.addEventListener('keydown',unlockIntroSpeech,{once:true,capture:true});
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',startIntroSpeech,{once:true});
+else startIntroSpeech();
