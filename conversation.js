@@ -4,7 +4,7 @@ const normalize=s=>String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300
 const hourSort=a=>Number(a.time.slice(0,2))*60+Number(a.time.slice(3,5));
 function conversationalAnswer(raw){
 const q=normalize(raw),kb=window.CIIIA_KNOWLEDGE||{},dayMatch=q.match(/\b(11|12|13)\b/);
-if(/^(hola|holi|buenas|buenos dias|buenas tardes|buenas noches|hey|saludos|que tal|como estas)( |$)/.test(q))return {answer:"¡Hola! Qué gusto saludarte. Soy DACYT 5.0, tu guía del CIIIA 2026. Tenemos conferencias, talleres y actividades los días 11, 12 y 13 de noviembre. ¿Quieres conocer horarios, saber de qué trata el congreso o aprender algo de inteligencia artificial?",choices:["Horarios","¿Qué es el CIIIA?","¿Qué es la inteligencia artificial?"]};
+if(/^(hola|holi|buenas|buenos dias|buenas tardes|buenas noches|hey|saludos|que tal|como estas)( |$)/.test(q))return {answer:"¡Hola! Qué gusto saludarte. Soy DACYTI 5.0, tu guía del CIIIA 2026. Tenemos conferencias, talleres y actividades los días 11, 12 y 13 de noviembre. ¿Quieres conocer horarios, saber de qué trata el congreso o aprender algo de inteligencia artificial?",choices:["Horarios","¿Qué es el CIIIA?","¿Qué es la inteligencia artificial?"]};
 if(/^(gracias|muchas gracias|te agradezco)/.test(q))return {answer:"¡Con mucho gusto! Estoy aquí para ayudarte. ¿Quieres consultar otro día, taller o conferencia?",choices:["11 de noviembre","12 de noviembre","13 de noviembre"]};
 if(/^(adios|hasta luego|bye)/.test(q))return {answer:"¡Hasta pronto! Disfruta el CIIIA 2026. Será un gusto acompañarte durante el congreso.",choices:[]};
 if(dayMatch)chatState.day=Number(dayMatch[1]);
