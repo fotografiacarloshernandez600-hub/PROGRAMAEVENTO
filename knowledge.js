@@ -1,0 +1,5 @@
+window.CIIIA_KNOWLEDGE={
+what:"El CIIIA 2026 es un encuentro académico, científico y tecnológico que promueve la innovación, la investigación y el intercambio de conocimientos sobre inteligencia artificial y tecnologías emergentes. Reúne a investigadores, especialistas, docentes, estudiantes y profesionales, y busca fortalecer la colaboración entre instituciones educativas, organismos científicos y sectores productivos.",
+activities:"El congreso contempla 11 conferencistas, incluyendo una persona de Estados Unidos y otra de Brasil; conferencias magistrales, talleres prácticos y especializados, presentación de ponencias y trabajos de investigación científica, y espacios de intercambio académico, vinculación y colaboración.",
+topics:"Se abordarán inteligencia artificial y aprendizaje automático; IA generativa y procesamiento del lenguaje natural; ciencia de datos y analítica avanzada; ciberseguridad y protección de la información; robótica, automatización y tecnologías emergentes; innovación y transformación digital; aplicaciones de IA en educación, salud, industria y otros sectores; y ética, responsabilidad e impacto social de la IA."
+};
