@@ -27,9 +27,26 @@ async function ask(q){if(!q.trim())return;if(/(?:activa|activar|inicia|iniciar|a
 $('#chatForm').onsubmit=e=>{e.preventDefault();ask($('#question').value);$('#question').value=''};
 document.querySelectorAll('.suggest').forEach(b=>b.onclick=()=>{ask(b.textContent);location.hash='asistente'});
 
-let voiceEnabled=true;let currentSpeech=null;const synth=window.speechSynthesis;const robot=$('#robotAvatar'),status=$('#robotStatus');
-function stopRobot(){stopLocalVisemes();if(synth)synth.cancel();robot.classList.remove('speaking','mouth-open');status.textContent='Listo para ayudarte';currentSpeech=null}
-function fallbackSpeakRobot(text){stopRobot();if(!voiceEnabled||!synth||typeof SpeechSynthesisUtterance==='undefined'){status.textContent='Audio no disponible en este navegador';return}const u=new SpeechSynthesisUtterance(text);u.lang='es-MX';u.rate=1.02;u.pitch=1.06;const voices=synth.getVoices();const es=voices.find(v=>v.lang.toLowerCase()==='es-mx')||voices.find(v=>v.lang.toLowerCase().startsWith('es'));if(es)u.voice=es;u.onstart=()=>{robot.classList.add('speaking');status.textContent='Hablando…';animateLocalVisemes()};u.onboundary=()=>{robot.classList.remove('mouth-open');void robot.offsetWidth;robot.classList.add('mouth-open')};u.onend=()=>{stopLocalVisemes();robot.classList.remove('speaking');status.textContent='Listo para ayudarte'};u.onerror=e=>{stopLocalVisemes();robot.classList.remove('speaking');status.textContent=e.error==='not-allowed'?'Toca la pantalla para activar la voz':'Audio no disponible';};currentSpeech=u;synth.speak(u)}
+let voiceEnabled=true;let currentSpeech=null;let mobileSpeechWatchdog=null;const synth=window.speechSynthesis;const robot=$('#robotAvatar'),status=$('#robotStatus');
+function stopRobot(){clearTimeout(mobileSpeechWatchdog);stopLocalVisemes();if(synth)synth.cancel();robot.classList.remove('speaking','mouth-open');status.textContent='Listo para ayudarte';currentSpeech=null}
+function fallbackSpeakRobot(text){
+ stopRobot();
+ if(!voiceEnabled||!synth||typeof SpeechSynthesisUtterance==='undefined'){status.textContent='Voz no compatible con este navegador';return}
+ const u=new SpeechSynthesisUtterance(text);
+ u.lang='es-MX';u.rate=0.98;u.pitch=1;u.volume=1;
+ const voices=synth.getVoices();
+ const es=voices.find(v=>v.lang.toLowerCase()==='es-mx'&&v.localService)||voices.find(v=>v.lang.toLowerCase().startsWith('es')&&v.localService)||voices.find(v=>v.lang.toLowerCase().startsWith('es'));
+ if(es)u.voice=es;
+ let started=false;
+ u.onstart=()=>{started=true;robot.classList.add('speaking');status.textContent='Hablando…';animateLocalVisemes()};
+ u.onboundary=()=>{robot.classList.remove('mouth-open');void robot.offsetWidth;robot.classList.add('mouth-open')};
+ u.onend=()=>{clearTimeout(mobileSpeechWatchdog);stopLocalVisemes();robot.classList.remove('speaking');status.textContent='Listo para ayudarte'};
+ u.onerror=e=>{clearTimeout(mobileSpeechWatchdog);stopLocalVisemes();robot.classList.remove('speaking');status.textContent=e.error==='not-allowed'?'Toca de nuevo para activar el audio':'No se pudo reproducir la voz'};
+ currentSpeech=u;
+ // En Safari/Chrome móvil, iniciar el audio en el gesto que envía el mensaje.
+ try{synth.speak(u);synth.resume()}catch{status.textContent='No se pudo iniciar el audio';return}
+ mobileSpeechWatchdog=setTimeout(()=>{if(currentSpeech===u&&!started){status.textContent='La voz está bloqueada por el navegador';stopLocalVisemes()}},3500);
+}
 /* Visemas temporizados: cuando Azure Speech está configurado, el SDK entrega
    IDs de visema alineados al audio generado. Sin Azure se usa la voz local. */
 let azurePlayer=null,azureSynth=null,visemeFrames=[],visemeRaf=0,speechSerial=0;
