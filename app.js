@@ -32,17 +32,21 @@ function stopRobot(){clearTimeout(mobileSpeechWatchdog);stopLocalVisemes();if(sy
 // Restaurado desde la versión de voz que funcionaba en Safari (commit 6f7febe).
 // Los visemas solo reaccionan a los eventos de la voz; no la controlan.
 function fallbackSpeakRobot(text){
- stopRobot();
- if(!voiceEnabled||!synth)return;
+ // Safari iOS: no cancelar la cola de voz justo antes de hablar.
+ // La animación no debe controlar el sintetizador.
+ if(!voiceEnabled||!synth||typeof SpeechSynthesisUtterance==='undefined')return;
+ if(currentSpeech && (synth.speaking||synth.pending)){try{synth.cancel()}catch{}}
+ stopLocalVisemes();
+ robot.classList.remove('speaking','mouth-open');
  const u=new SpeechSynthesisUtterance(text);
  u.lang='es-MX';u.rate=1.02;u.pitch=1.06;
  const voices=synth.getVoices();
  const es=voices.find(v=>v.lang.toLowerCase()==='es-mx')||voices.find(v=>v.lang.toLowerCase().startsWith('es'));
  if(es)u.voice=es;
- u.onstart=()=>{robot.classList.add('speaking');status.textContent='Hablando…';animateLocalVisemes()};
- u.onboundary=()=>{robot.classList.remove('mouth-open');void robot.offsetWidth;robot.classList.add('mouth-open')};
- u.onend=()=>{stopLocalVisemes();robot.classList.remove('speaking');status.textContent='Listo para ayudarte'};
- u.onerror=()=>{stopLocalVisemes();robot.classList.remove('speaking');status.textContent='Audio no disponible'};
+ u.onstart=()=>{robot.classList.add('speaking');status.textContent='Hablando…';if(!/iPad|iPhone|iPod/i.test(navigator.userAgent))animateLocalVisemes()};
+ u.onboundary=()=>{if(!/iPad|iPhone|iPod/i.test(navigator.userAgent)){robot.classList.remove('mouth-open');void robot.offsetWidth;robot.classList.add('mouth-open')}};
+ u.onend=()=>{if(currentSpeech!==u)return;stopLocalVisemes();robot.classList.remove('speaking');status.textContent='Listo para ayudarte';currentSpeech=null};
+ u.onerror=e=>{if(currentSpeech!==u)return;stopLocalVisemes();robot.classList.remove('speaking');status.textContent='Audio no disponible';currentSpeech=null};
  currentSpeech=u;
  synth.speak(u);
 }
