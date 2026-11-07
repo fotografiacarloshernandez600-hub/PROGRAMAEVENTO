@@ -64,19 +64,36 @@ stopRobot=function(){speechSerial++;if(azureSynth){try{azureSynth.close()}catch{
 let mobileAudio=null,mobileAudioUrl=null,mobileSpeechRequest=0;
 function speakMobile(text){
  const request=++mobileSpeechRequest;
- if(mobileAudio){mobileAudio.pause();mobileAudio.removeAttribute('src');mobileAudio.load();mobileAudio=null}
+ if(mobileAudio){try{mobileAudio.pause();mobileAudio.removeAttribute('src');mobileAudio.load()}catch{}}
  robot.classList.remove('speaking');
  const audio=new Audio('/api/speech?text='+encodeURIComponent(String(text).slice(0,1200)));
  mobileAudio=audio;
  audio.preload='auto';
- status.textContent='Preparando voz…';
- audio.onplaying=()=>{if(request!==mobileSpeechRequest)return;robot.classList.add('speaking');status.textContent='Hablando…'};
- audio.onended=()=>{if(request!==mobileSpeechRequest)return;robot.classList.remove('speaking');status.textContent='Listo para ayudarte'};
- let usedFallback=false;
- const fallback=()=>{if(usedFallback||request!==mobileSpeechRequest)return;usedFallback=true;robot.classList.remove('speaking');fallbackSpeakRobot(text)};
+ let completed=false;
+ let watchdog=null;
+ const fallback=()=>{
+  if(completed||request!==mobileSpeechRequest)return;
+  completed=true;clearTimeout(watchdog);
+  try{audio.pause();audio.removeAttribute('src')}catch{}
+  robot.classList.remove('speaking');
+  status.textContent='Intentando voz del dispositivo…';
+  fallbackSpeakRobot(text);
+ };
+ audio.onplaying=()=>{
+  if(request!==mobileSpeechRequest)return;
+  clearTimeout(watchdog);
+  robot.classList.add('speaking');status.textContent='Hablando…';
+ };
+ audio.onended=()=>{
+  if(request!==mobileSpeechRequest)return;
+  completed=true;clearTimeout(watchdog);
+  robot.classList.remove('speaking');status.textContent='Listo para ayudarte';
+ };
  audio.onerror=fallback;
- // Importante: play() se invoca directamente desde el envío del formulario,
- // antes de cualquier await, para conservar la activación del usuario en Safari.
+ audio.onstalled=()=>{if(audio.readyState<2)fallback()};
+ status.textContent='Preparando voz…';
+ // Safari puede dejar play() pendiente indefinidamente: nunca dejar el estado congelado.
+ watchdog=setTimeout(fallback,4500);
  try{const p=audio.play();if(p&&typeof p.catch==='function')p.catch(fallback)}catch{fallback()}
 }
 function speakRobot(text){lastRobotAnswer=text;if(!voiceEnabled)return;const isAppleMobile=/iPad|iPhone|iPod/.test(navigator.userAgent)||(/Macintosh/.test(navigator.userAgent)&&navigator.maxTouchPoints>1);if(isAppleMobile||/Android|Mobile/i.test(navigator.userAgent)){speakMobile(text);return}const sdk=window.SpeechSDK;if(!sdk){fallbackSpeakRobot(text);return}const requestId=++speechSerial;fetch('/api/speech-token').then(async r=>{if(!r.ok)throw Error('Azure no configurado');return r.json()}).then(({token,region})=>{if(requestId!==speechSerial)return;stopRobot();const id=speechSerial;const config=sdk.SpeechConfig.fromAuthorizationToken(token,region);config.speechSynthesisVoiceName='es-MX-DaliaNeural';config.speechSynthesisOutputFormat=sdk.SpeechSynthesisOutputFormat.Audio24Khz48KBitRateMonoMp3;azurePlayer=new sdk.SpeakerAudioDestination();const audioConfig=sdk.AudioConfig.fromSpeakerOutput(azurePlayer);azureSynth=new sdk.SpeechSynthesizer(config,audioConfig);visemeFrames=[];robot.classList.add('speaking');status.textContent='Hablando con sincronización de visemas…';azureSynth.visemeReceived=(_,e)=>{visemeFrames.push({t:e.audioOffset/10000000,id:e.visemeId});visemeFrames.sort((a,b)=>a.t-b.t)};let last=-1;function tick(){if(id!==speechSerial)return;const time=azurePlayer?azurePlayer.currentTime:0;let active=0;for(const frame of visemeFrames){if(frame.t<=time+.025)active=frame.id;else break}if(active!==last){setViseme(active);last=active}visemeRaf=requestAnimationFrame(tick)}tick();azurePlayer.onAudioEnd=()=>{if(id!==speechSerial)return;cancelAnimationFrame(visemeRaf);robot.classList.remove('speaking');setViseme(0);status.textContent='Listo para ayudarte';if(azureSynth){azureSynth.close();azureSynth=null}};azureSynth.speakTextAsync(text,()=>{},()=>{if(id===speechSerial){stopRobot();fallbackSpeakRobot(text)}})}).catch(()=>{if(requestId===speechSerial)fallbackSpeakRobot(text)})}
