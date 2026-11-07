@@ -28,22 +28,15 @@ $('#chatForm').onsubmit=e=>{e.preventDefault();ask($('#question').value);$('#que
 document.querySelectorAll('.suggest').forEach(b=>b.onclick=()=>{ask(b.textContent);location.hash='asistente'});
 
 let voiceEnabled=true;let currentSpeech=null;const synth=window.speechSynthesis;const robot=$('#robotAvatar'),status=$('#robotStatus');
-function stopRobot(){if(synth)synth.cancel();robot.classList.remove('speaking','mouth-open');status.textContent='Listo para ayudarte';currentSpeech=null}
-function fallbackSpeakRobot(text){stopRobot();if(!voiceEnabled||!synth||typeof SpeechSynthesisUtterance==='undefined'){status.textContent='Audio no disponible en este navegador';return}const u=new SpeechSynthesisUtterance(text);u.lang='es-MX';u.rate=1.02;u.pitch=1.06;const voices=synth.getVoices();const es=voices.find(v=>v.lang.toLowerCase()==='es-mx')||voices.find(v=>v.lang.toLowerCase().startsWith('es'));if(es)u.voice=es;u.onstart=()=>{robot.classList.add('speaking');status.textContent='Hablando…'};u.onboundary=()=>{robot.classList.remove('mouth-open');void robot.offsetWidth;robot.classList.add('mouth-open')};u.onend=()=>{robot.classList.remove('speaking');status.textContent='Listo para ayudarte'};u.onerror=e=>{robot.classList.remove('speaking');status.textContent=e.error==='not-allowed'?'Toca la pantalla para activar la voz':'Audio no disponible';};currentSpeech=u;synth.speak(u)}
-const introText='¡Hola! Bienvenidos al Primer Congreso Internacional de Innovación e Inteligencia Artificial, CIIIA 2026, de la DACYTI. Durante los días 11, 12 y 13 de noviembre encontrarás conferencias magistrales, talleres presenciales y virtuales, ponencias, concursos y actividades sobre inteligencia artificial. Soy DACYTI cinco punto cero, tu asistente del congreso. Pregúntame por los horarios, sedes, ponentes o actividades que te interesen.';
-let introductionStarted=false;let introPending=false;
-function startIntroduction(){if(introductionStarted)return;introPending=true;status.textContent='Toca la pantalla para escuchar mi bienvenida';}
-const robotSection=document.querySelector('#asistente');
-if('IntersectionObserver' in window){const observer=new IntersectionObserver(entries=>{if(entries.some(e=>e.isIntersecting)){observer.disconnect();startIntroduction()}},{threshold:.35});observer.observe(robotSection)}else{startIntroduction()}
-// En iOS Safari el audio no puede comenzar solo sin un gesto del usuario.
-// Intentar el saludo en el primer gesto sobre la web, sin controles extra.
-function tryIntroOnGesture(){if(introductionStarted)return;introductionStarted=true;introPending=false;speakRobot(introText)}
-document.addEventListener('pointerdown',e=>{if(e.target.closest('#chatForm, #chatChoices, .suggest, #quizGame, #welcomeOverlay'))return;tryIntroOnGesture()},{once:true});
-document.addEventListener('keydown',tryIntroOnGesture,{once:true});
+function stopRobot(){stopLocalVisemes();if(synth)synth.cancel();robot.classList.remove('speaking','mouth-open');status.textContent='Listo para ayudarte';currentSpeech=null}
+function fallbackSpeakRobot(text){stopRobot();if(!voiceEnabled||!synth||typeof SpeechSynthesisUtterance==='undefined'){status.textContent='Audio no disponible en este navegador';return}const u=new SpeechSynthesisUtterance(text);u.lang='es-MX';u.rate=1.02;u.pitch=1.06;const voices=synth.getVoices();const es=voices.find(v=>v.lang.toLowerCase()==='es-mx')||voices.find(v=>v.lang.toLowerCase().startsWith('es'));if(es)u.voice=es;u.onstart=()=>{robot.classList.add('speaking');status.textContent='Hablando…';animateLocalVisemes()};u.onboundary=()=>{robot.classList.remove('mouth-open');void robot.offsetWidth;robot.classList.add('mouth-open')};u.onend=()=>{stopLocalVisemes();robot.classList.remove('speaking');status.textContent='Listo para ayudarte'};u.onerror=e=>{stopLocalVisemes();robot.classList.remove('speaking');status.textContent=e.error==='not-allowed'?'Toca la pantalla para activar la voz':'Audio no disponible';};currentSpeech=u;synth.speak(u)}
 /* Visemas temporizados: cuando Azure Speech está configurado, el SDK entrega
    IDs de visema alineados al audio generado. Sin Azure se usa la voz local. */
 let azurePlayer=null,azureSynth=null,visemeFrames=[],visemeRaf=0,speechSerial=0;
 const visemeMouth=$('#visemeMouth');
+let localVisemeTimer=null;
+function animateLocalVisemes(){clearInterval(localVisemeTimer);let step=0;localVisemeTimer=setInterval(()=>{setViseme([1,4,7,10,13,16,19,5,2,0][step++%10])},115)}
+function stopLocalVisemes(){clearInterval(localVisemeTimer);localVisemeTimer=null;setViseme(0)}
 function setViseme(id){if(!visemeMouth)return;visemeMouth.dataset.viseme=String(id);visemeMouth.style.opacity=id===0?'0.15':'1'}
 const baseStopRobot=stopRobot;
 stopRobot=function(){speechSerial++;if(azureSynth){try{azureSynth.close()}catch{}azureSynth=null}if(azurePlayer){try{azurePlayer.pause()}catch{}azurePlayer=null}cancelAnimationFrame(visemeRaf);visemeFrames=[];setViseme(0);baseStopRobot()};
