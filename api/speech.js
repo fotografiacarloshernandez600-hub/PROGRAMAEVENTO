@@ -1,10 +1,10 @@
 // Genera MP3 real en el servidor para evitar fallos de speechSynthesis en Safari.
 module.exports=async function handler(req,res){
  res.setHeader('Cache-Control','no-store');
- if(req.method!=='POST')return res.status(405).json({error:'Method not allowed'});
+ if(req.method!=='GET'&&req.method!=='POST')return res.status(405).json({error:'Method not allowed'});
  const key=process.env.AZURE_SPEECH_KEY,region=process.env.AZURE_SPEECH_REGION;
  if(!key||!region)return res.status(503).json({error:'SPEECH_NOT_CONFIGURED'});
- const text=String(req.body?.text||'').trim().slice(0,1200);
+ const text=String(req.query?.text||req.body?.text||'').trim().slice(0,1200);
  if(!text)return res.status(400).json({error:'Empty text'});
  const escaped=text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;');
  const ssml='<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="es-MX"><voice name="es-MX-DaliaNeural">'+escaped+'</voice></speak>';
