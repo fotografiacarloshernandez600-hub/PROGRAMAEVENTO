@@ -7,7 +7,7 @@ let q=$('#search').value.toLocaleLowerCase('es'),cat=$('#category').value;
 let matches=data.filter(a=>(day==='all'||String(a.day)===day)&&(cat==='all'||a.type===cat)&&(!favoritesOnly||fav.has(a.id))&&[a.title,a.speaker,a.place,a.time,a.mode].join(' ').toLocaleLowerCase('es').includes(q)).sort((a,b)=>a.day-b.day||a.time.localeCompare(b.time));
 $('#resultCount').textContent=matches.length+' actividades encontradas';
 $('#cards').innerHTML=matches.map(a=>'<article class="activity"><div class="activity-top"><span class="tag">'+esc(a.type)+'</span><button class="favorite '+(fav.has(a.id)?'saved':'')+'" data-id="'+a.id+'" aria-label="Guardar favorito">'+(fav.has(a.id)?'★':'☆')+'</button></div><h3>'+esc(a.title)+'</h3><p class="speaker">'+esc(a.speaker||'Programa CIIIA 2026')+'</p><div class="activity-meta"><span>◷ '+esc(a.time)+' · '+a.day+' de noviembre</span><span>⌖ '+esc(a.place||'Sede por confirmar')+' · '+esc(a.mode)+'</span></div></article>').join('')||'<p>No se encontraron actividades con esos filtros.</p>';
-document.querySelectorAll('.favorite').forEach(b=>b.onclick=()=>{let id=Number(b.dataset.id);fav.has(id)?fav.delete(id):fav.add(id);try{localStorage.setItem('ciiia-favorites',JSON.stringify([...fav]))}catch{}render()});
+document.querySelectorAll('.favorite').forEach(b=>b.onclick=()=>{let id=Number(b.dataset.id);fav.has(id)?fav.delete(id):fav.add(id);try{localStorage.setItem('ciiia-favorites',JSON.stringify([...fav]))}catch{}render();document.dispatchEvent(new Event('ciiia:favorites-updated'))});
 }
 document.querySelectorAll('[data-day]').forEach(b=>b.onclick=()=>{day=b.dataset.day;document.querySelectorAll('[data-day]').forEach(x=>x.classList.toggle('active',x===b));render()});
 $('#search').oninput=render;$('#category').onchange=render;$('#favToggle').onclick=()=>{favoritesOnly=!favoritesOnly;$('#favToggle').textContent=favoritesOnly?'★ Mostrando favoritos':'☆ Ver mis favoritos';render()};render();
@@ -23,7 +23,7 @@ if(!matches.length)return 'No encontré una coincidencia clara en el programa. P
 return 'Encontré '+matches.length+' actividad(es) relacionada(s):\n\n'+matches.slice(0,7).map(a=>'• '+a.day+'/nov · '+a.time+': '+a.title+(a.speaker?' — '+a.speaker:'')+' ('+(a.place||'sede no indicada')+')').join('\n')+(matches.length>7?'\n\nY '+(matches.length-7)+' más. Usa los filtros de la agenda para verlas todas.':'');
 }
 function showChoices(choices){let old=$('#chatChoices');if(old)old.remove();if(!choices?.length)return;const panel=document.createElement('div');panel.id='chatChoices';panel.className='chat-choices';for(const label of choices){const button=document.createElement('button');button.type='button';button.textContent=label;button.onclick=()=>ask(label);panel.appendChild(button)}$('#messages').appendChild(panel);$('#messages').scrollTop=$('#messages').scrollHeight}
-async function ask(q){if(!q.trim())return;const m=$('#messages');const old=$('#chatChoices');if(old)old.remove();const user=document.createElement('div');user.className='message user';user.textContent=q;m.appendChild(user);const result=conversationalAnswer(q);const bot=document.createElement('div');bot.className='message bot';bot.textContent=result.answer;m.appendChild(bot);showChoices(result.choices);m.scrollTop=m.scrollHeight;speakRobot(result.answer)}
+async function ask(q){if(!q.trim())return;if(/(?:activa|activar|inicia|iniciar|abre|modo)\s+(?:el\s+)?modo\s+futuro|modo\s+futuro/i.test(q)){window.CIIIAExperience?.futureMode()}const m=$('#messages');const old=$('#chatChoices');if(old)old.remove();const user=document.createElement('div');user.className='message user';user.textContent=q;m.appendChild(user);const result=conversationalAnswer(q);const bot=document.createElement('div');bot.className='message bot';bot.textContent=result.answer;m.appendChild(bot);showChoices(result.choices);m.scrollTop=m.scrollHeight;speakRobot(result.answer)}
 $('#chatForm').onsubmit=e=>{e.preventDefault();ask($('#question').value);$('#question').value=''};
 document.querySelectorAll('.suggest').forEach(b=>b.onclick=()=>{ask(b.textContent);location.hash='asistente'});
 
@@ -38,7 +38,7 @@ if('IntersectionObserver' in window){const observer=new IntersectionObserver(ent
 // En iOS Safari el audio no puede comenzar solo sin un gesto del usuario.
 // Intentar el saludo en el primer gesto sobre la web, sin controles extra.
 function tryIntroOnGesture(){if(!introductionStarted)startIntroduction();else if(!robot.classList.contains('speaking')&&status.textContent!=='Hablando…')speakRobot(introText)}
-document.addEventListener('pointerdown',tryIntroOnGesture,{once:true});
+document.addEventListener('pointerdown',e=>{if(e.target.closest('#chatForm, #chatChoices, .suggest, #quizGame, #welcomeOverlay'))return;tryIntroOnGesture()},{once:true});
 document.addEventListener('keydown',tryIntroOnGesture,{once:true});
 /* Visemas temporizados: cuando Azure Speech está configurado, el SDK entrega
    IDs de visema alineados al audio generado. Sin Azure se usa la voz local. */
