@@ -27,26 +27,33 @@ async function ask(q){if(!q.trim())return;if(/(?:activa|activar|inicia|iniciar|a
 $('#chatForm').onsubmit=e=>{e.preventDefault();ask($('#question').value);$('#question').value=''};
 document.querySelectorAll('.suggest').forEach(b=>b.onclick=()=>{ask(b.textContent);location.hash='asistente'});
 
-let voiceEnabled=true;let currentSpeech=null;let mobileSpeechWatchdog=null;let lastRobotAnswer='';const replayAudioButton=$('#playRobotAudio');replayAudioButton?.addEventListener('click',()=>{if(lastRobotAnswer)fallbackSpeakRobot(lastRobotAnswer)});const synth=window.speechSynthesis;const robot=$('#robotAvatar'),status=$('#robotStatus');
+let voiceEnabled=true;let currentSpeech=null;let mobileSpeechWatchdog=null;let lastRobotAnswer='';const synth=window.speechSynthesis;const robot=$('#robotAvatar'),status=$('#robotStatus');
 function stopRobot(){clearTimeout(mobileSpeechWatchdog);stopLocalVisemes();if(synth)synth.cancel();robot.classList.remove('speaking','mouth-open');status.textContent='Listo para ayudarte';currentSpeech=null}
 function fallbackSpeakRobot(text){
- lastRobotAnswer=text;if(replayAudioButton)replayAudioButton.hidden=false;
- stopRobot();
- if(!voiceEnabled||!synth||typeof SpeechSynthesisUtterance==='undefined'){status.textContent='Voz no compatible con este navegador';return}
- const u=new SpeechSynthesisUtterance(text);
- u.lang='es-MX';u.rate=0.98;u.pitch=1;u.volume=1;
- const voices=synth.getVoices();
- const es=voices.find(v=>v.lang.toLowerCase()==='es-mx'&&v.localService)||voices.find(v=>v.lang.toLowerCase().startsWith('es')&&v.localService)||voices.find(v=>v.lang.toLowerCase().startsWith('es'));
+ lastRobotAnswer=text;
+ if(!voiceEnabled||!synth||typeof SpeechSynthesisUtterance==='undefined'){
+   status.textContent='Voz no compatible con este navegador';return;
+ }
+ // Safari necesita que speak() se ejecute directamente desde el gesto del usuario.
+ // Evitar cancel() en el primer mensaje: puede dejar la cola de iOS en silencio.
+ clearTimeout(mobileSpeechWatchdog);
+ if(currentSpeech||synth.speaking||synth.pending){try{synth.cancel()}catch{}}
+ stopLocalVisemes();
+ robot.classList.remove('speaking','mouth-open');
+ const u=new SpeechSynthesisUtterance(String(text).slice(0,1400));
+ u.lang='es-MX';u.rate=0.95;u.pitch=1;u.volume=1;
+ const voices=synth.getVoices()||[];
+ const es=voices.find(v=>v.lang.toLowerCase()==='es-mx')||voices.find(v=>v.lang.toLowerCase().startsWith('es'));
  if(es)u.voice=es;
  let started=false;
  u.onstart=()=>{started=true;robot.classList.add('speaking');status.textContent='Hablando…';animateLocalVisemes()};
- u.onboundary=()=>{robot.classList.remove('mouth-open');void robot.offsetWidth;robot.classList.add('mouth-open')};
- u.onend=()=>{clearTimeout(mobileSpeechWatchdog);stopLocalVisemes();robot.classList.remove('speaking');status.textContent='Listo para ayudarte'};
- u.onerror=e=>{clearTimeout(mobileSpeechWatchdog);stopLocalVisemes();robot.classList.remove('speaking');status.textContent=e.error==='not-allowed'?'Toca de nuevo para activar el audio':'No se pudo reproducir la voz'};
+ u.onboundary=()=>{if(!started){started=true;robot.classList.add('speaking');animateLocalVisemes()}};
+ const finish=()=>{clearTimeout(mobileSpeechWatchdog);stopLocalVisemes();robot.classList.remove('speaking');if(currentSpeech===u)currentSpeech=null;status.textContent='Listo para ayudarte'};
+ u.onend=finish;
+ u.onerror=e=>{finish();status.textContent=e.error==='not-allowed'?'El navegador bloqueó el audio':'No se pudo reproducir la voz'};
  currentSpeech=u;
- // En Safari/Chrome móvil, iniciar el audio en el gesto que envía el mensaje.
- try{synth.speak(u);synth.resume()}catch{status.textContent='No se pudo iniciar el audio';return}
- mobileSpeechWatchdog=setTimeout(()=>{if(currentSpeech===u&&!started){status.textContent='Toca «Escuchar respuesta» para intentar activar el audio';stopLocalVisemes()}},3500);
+ try{synth.speak(u)}catch{finish();status.textContent='No se pudo iniciar el audio';return}
+ mobileSpeechWatchdog=setTimeout(()=>{if(currentSpeech===u&&!started){status.textContent='No se inició la voz en este navegador';stopLocalVisemes()}},5000);
 }
 /* Visemas temporizados: cuando Azure Speech está configurado, el SDK entrega
    IDs de visema alineados al audio generado. Sin Azure se usa la voz local. */
@@ -58,4 +65,4 @@ function stopLocalVisemes(){clearInterval(localVisemeTimer);localVisemeTimer=nul
 function setViseme(id){if(!visemeMouth)return;visemeMouth.dataset.viseme=String(id);visemeMouth.style.opacity=id===0?'0.15':'1'}
 const baseStopRobot=stopRobot;
 stopRobot=function(){speechSerial++;if(azureSynth){try{azureSynth.close()}catch{}azureSynth=null}if(azurePlayer){try{azurePlayer.pause()}catch{}azurePlayer=null}cancelAnimationFrame(visemeRaf);visemeFrames=[];setViseme(0);baseStopRobot()};
-function speakRobot(text){lastRobotAnswer=text;if(replayAudioButton)replayAudioButton.hidden=false;if(!voiceEnabled)return;const isAppleMobile=/iPad|iPhone|iPod/.test(navigator.userAgent)||(/Macintosh/.test(navigator.userAgent)&&navigator.maxTouchPoints>1);if(isAppleMobile||/Android|Mobile/i.test(navigator.userAgent)){fallbackSpeakRobot(text);return}const sdk=window.SpeechSDK;if(!sdk){fallbackSpeakRobot(text);return}const requestId=++speechSerial;fetch('/api/speech-token').then(async r=>{if(!r.ok)throw Error('Azure no configurado');return r.json()}).then(({token,region})=>{if(requestId!==speechSerial)return;stopRobot();const id=speechSerial;const config=sdk.SpeechConfig.fromAuthorizationToken(token,region);config.speechSynthesisVoiceName='es-MX-DaliaNeural';config.speechSynthesisOutputFormat=sdk.SpeechSynthesisOutputFormat.Audio24Khz48KBitRateMonoMp3;azurePlayer=new sdk.SpeakerAudioDestination();const audioConfig=sdk.AudioConfig.fromSpeakerOutput(azurePlayer);azureSynth=new sdk.SpeechSynthesizer(config,audioConfig);visemeFrames=[];robot.classList.add('speaking');status.textContent='Hablando con sincronización de visemas…';azureSynth.visemeReceived=(_,e)=>{visemeFrames.push({t:e.audioOffset/10000000,id:e.visemeId});visemeFrames.sort((a,b)=>a.t-b.t)};let last=-1;function tick(){if(id!==speechSerial)return;const time=azurePlayer?azurePlayer.currentTime:0;let active=0;for(const frame of visemeFrames){if(frame.t<=time+.025)active=frame.id;else break}if(active!==last){setViseme(active);last=active}visemeRaf=requestAnimationFrame(tick)}tick();azurePlayer.onAudioEnd=()=>{if(id!==speechSerial)return;cancelAnimationFrame(visemeRaf);robot.classList.remove('speaking');setViseme(0);status.textContent='Listo para ayudarte';if(azureSynth){azureSynth.close();azureSynth=null}};azureSynth.speakTextAsync(text,()=>{},()=>{if(id===speechSerial){stopRobot();fallbackSpeakRobot(text)}})}).catch(()=>{if(requestId===speechSerial)fallbackSpeakRobot(text)})}
+function speakRobot(text){lastRobotAnswer=text;if(!voiceEnabled)return;const isAppleMobile=/iPad|iPhone|iPod/.test(navigator.userAgent)||(/Macintosh/.test(navigator.userAgent)&&navigator.maxTouchPoints>1);if(isAppleMobile||/Android|Mobile/i.test(navigator.userAgent)){fallbackSpeakRobot(text);return}const sdk=window.SpeechSDK;if(!sdk){fallbackSpeakRobot(text);return}const requestId=++speechSerial;fetch('/api/speech-token').then(async r=>{if(!r.ok)throw Error('Azure no configurado');return r.json()}).then(({token,region})=>{if(requestId!==speechSerial)return;stopRobot();const id=speechSerial;const config=sdk.SpeechConfig.fromAuthorizationToken(token,region);config.speechSynthesisVoiceName='es-MX-DaliaNeural';config.speechSynthesisOutputFormat=sdk.SpeechSynthesisOutputFormat.Audio24Khz48KBitRateMonoMp3;azurePlayer=new sdk.SpeakerAudioDestination();const audioConfig=sdk.AudioConfig.fromSpeakerOutput(azurePlayer);azureSynth=new sdk.SpeechSynthesizer(config,audioConfig);visemeFrames=[];robot.classList.add('speaking');status.textContent='Hablando con sincronización de visemas…';azureSynth.visemeReceived=(_,e)=>{visemeFrames.push({t:e.audioOffset/10000000,id:e.visemeId});visemeFrames.sort((a,b)=>a.t-b.t)};let last=-1;function tick(){if(id!==speechSerial)return;const time=azurePlayer?azurePlayer.currentTime:0;let active=0;for(const frame of visemeFrames){if(frame.t<=time+.025)active=frame.id;else break}if(active!==last){setViseme(active);last=active}visemeRaf=requestAnimationFrame(tick)}tick();azurePlayer.onAudioEnd=()=>{if(id!==speechSerial)return;cancelAnimationFrame(visemeRaf);robot.classList.remove('speaking');setViseme(0);status.textContent='Listo para ayudarte';if(azureSynth){azureSynth.close();azureSynth=null}};azureSynth.speakTextAsync(text,()=>{},()=>{if(id===speechSerial){stopRobot();fallbackSpeakRobot(text)}})}).catch(()=>{if(requestId===speechSerial)fallbackSpeakRobot(text)})}
