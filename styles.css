@@ -19,3 +19,6 @@
 .viseme-mouth[data-viseme="13"],.viseme-mouth[data-viseme="14"],.viseme-mouth[data-viseme="15"]{width:19px;height:15px;border-radius:40%}
 .viseme-mouth[data-viseme="16"],.viseme-mouth[data-viseme="17"],.viseme-mouth[data-viseme="18"],.viseme-mouth[data-viseme="19"],.viseme-mouth[data-viseme="20"],.viseme-mouth[data-viseme="21"]{width:23px;height:10px;border-radius:42%}
 .robot-avatar:has(.viseme-mouth:not([data-viseme="0"])) .robot-mouth{opacity:0}
+
+/* Encuadre frontal para el nuevo retrato DACYT */
+.robot-avatar{width:205px;height:240px;overflow:hidden;background:transparent;mask-image:none;border:0}.robot-avatar img{width:100%;height:100%;object-fit:contain;object-position:center;transform:none}.viseme-mouth{left:50%;top:44%;width:18px}.robot-avatar:before{display:none}
